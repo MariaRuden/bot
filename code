@@ -1,0 +1,45 @@
+from telegram import Update
+from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackContext, Filters
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.ensemble import RandomForestClassifier
+
+first_data = pd.read_csv('NewsCategorizer.csv')
+
+first_data['text'] = first_data['category'] + ' ' + first_data['short_description']
+
+vectorizer = TfidfVectorizer()
+X_train_tfidf = vectorizer.fit_transform(first_data['text'])
+
+rf_model = RandomForestClassifier(n_estimators=800, max_depth=50, random_state=42)
+rf_model.fit(X_train_tfidf, first_data['category'])
+
+def start(update: Update, context: CallbackContext) -> None:
+    update.message.reply_text('Привет! Я бот для классификации новостей.')
+
+def classify_news(update: Update, context: CallbackContext) -> None:
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Я получил ваш запрос!")
+
+    news_text = update.message.text
+
+    news_tfidf = vectorizer.transform([news_text])
+
+    predicted_class = rf_model.predict(news_tfidf)[0]
+
+    update.message.reply_text(f"Класс новости: {predicted_class}")
+
+def handle_messages(update: Update, context: CallbackContext) -> None:
+    context.bot.send_message(chat_id=update.effective_chat.id, text="Я получил ваш запрос!")
+
+def main() -> None:
+    updater = Updater(token='6858971245:AAGR2uKdVrEvYI-luZmebuVuKhQFAxVb4iA')
+
+    dp = updater.dispatcher
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, classify_news))
+
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == '__main__':
+    main()
